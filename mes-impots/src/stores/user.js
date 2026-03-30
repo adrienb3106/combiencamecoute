@@ -17,7 +17,7 @@ export const useUserStore = defineStore('user', {
 
     // Mode simple
     simple: {
-      impotNet: 3500,
+      nbParts: 1,
       declarants: [declarantVide(1)],
     },
 
@@ -43,20 +43,13 @@ export const useUserStore = defineStore('user', {
 
     prelevements: (state) => {
       if (state.mode === 'simple') {
-        // Cotisations : on calcule par déclarant puis on somme
         const foyerSimple = {
-          nbParts: 1,
+          nbParts: state.simple.nbParts,
           declarants: state.simple.declarants,
           revenusComplementaires: { fonciers: 0, autres: 0 },
           deductions: { deficitFoncier: 0, per: 0, pensionAlimentaire: 0, dons: [] },
         }
-        const calc = calculerPrelevementsAvance(foyerSimple, state.annee)
-        return {
-          ir: state.simple.impotNet,
-          cotisations: calc.cotisations,
-          total: state.simple.impotNet + calc.cotisations,
-          parDeclarant: calc.parDeclarant,
-        }
+        return calculerPrelevementsAvance(foyerSimple, state.annee)
       }
       return calculerPrelevementsAvance(state.avance, state.annee)
     },

@@ -3,6 +3,7 @@ import { watch, onMounted, computed, ref } from 'vue'
 import { useBudgetStore } from '@/stores/budget'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
+import BudgetCharts from '@/components/BudgetCharts.vue'
 
 const budget = useBudgetStore()
 const user = useUserStore()
@@ -11,6 +12,7 @@ const { annee, anneesDisponibles, mode, simple, avance } = storeToRefs(user)
 
 const prelvs = computed(() => user.prelevements)
 const expanded = ref(null)
+const vueMode = ref('cartes')
 
 watch(annee, (a) => budget.load(a))
 onMounted(() => budget.load(annee.value))
@@ -24,32 +26,76 @@ function myShare(pct, source) {
   return base * pct / 100
 }
 
-const vueGlobale = computed(() => {
-  if (!missions.value.length || !secu.value) return []
-  const totalEtat = missions.value.reduce((a, m) => a + m.total, 0)
-  const totalSecu = secu.value.total
-  const grandTotal = totalEtat + totalSecu
+const grandTotal = computed(() => {
+  if (!missions.value.length || !secu.value) return 0
+  return missions.value.reduce((a, m) => a + m.total, 0) + secu.value.total
+})
 
-  const lignesEtat = missions.value.map(m => ({
+const lignesEtat = computed(() => {
+  if (!missions.value.length || !grandTotal.value) return []
+  return missions.value.map(m => ({
     label: m.label, source: 'État', total: m.total,
-    pct: (m.total / grandTotal) * 100,
+    pct: (m.total / grandTotal.value) * 100,
     programmes: m.programmes.map(p => ({
       label: p.label, source: 'État', total: p.total,
-      pct: (p.total / grandTotal) * 100,
+      pct: (p.total / grandTotal.value) * 100,
     })),
-  }))
+  })).sort((a, b) => b.total - a.total)
+})
 
-  const lignesSecu = secu.value.branches.map(b => ({
+const lignesSecu = computed(() => {
+  if (!secu.value || !grandTotal.value) return []
+  return secu.value.branches.map(b => ({
     label: b.label, source: 'Sécu', total: b.total,
-    pct: (b.total / grandTotal) * 100,
+    pct: (b.total / grandTotal.value) * 100,
     programmes: b.programmes.map(p => ({
       label: p.label, source: 'Sécu', total: p.total,
-      pct: (p.total / grandTotal) * 100,
+      pct: (p.total / grandTotal.value) * 100,
     })),
-  }))
-
-  return [...lignesEtat, ...lignesSecu].sort((a, b) => b.total - a.total)
+  })).sort((a, b) => b.total - a.total)
 })
+
+const ICONES = {
+  // Sécu
+  'Retraites': '🧓',
+  'Santé — Assurance maladie': '🏥',
+  'Famille': '👨‍👩‍👧',
+  'Chômage': '💼',
+  'Accidents du travail & maladies professionnelles': '🦺',
+  'Perte d\'autonomie (dépendance)': '🤝',
+  // État
+  'Enseignement scolaire': '📚',
+  'Défense': '🛡️',
+  'Sécurités': '🚔',
+  'Engagements financiers de l\'État': '📉',
+  'Remboursements et dégrèvements': '💸',
+  'Solidarité, insertion et égalité des chances': '🤲',
+  'Travail et emploi': '👷',
+  'Recherche et enseignement supérieur': '🔬',
+  'Justice': '⚖️',
+  'Agriculture, alimentation, forêt et affaires rurales': '🌾',
+  'Cohésion des territoires': '🏘️',
+  'Écologie, développement et mobilité durables': '🌿',
+  'Sport, jeunesse et vie associative': '⚽',
+  'Culture': '🎭',
+  'Santé': '💊',
+  'Médias, livre et industries culturelles': '📰',
+  'Immigration, asile et intégration': '🌍',
+  'Aide publique au développement': '🌐',
+  'Outre-mer': '🏝️',
+  'Anciens combattants, mémoire et liens avec la Nation': '🎖️',
+  'Direction de l\'action du Gouvernement': '🏛️',
+  'Administration générale et territoriale de l\'État': '🗂️',
+  'Gestion des finances publiques': '📊',
+  'Relations avec les collectivités territoriales': '🗺️',
+  'Action et transformation publiques': '⚙️',
+  'Investissements d\'avenir': '🚀',
+  'Plan de relance': '📈',
+}
+
+function icone(label) {
+  return ICONES[label] ?? '📋'
+}
 
 function fmt(n) {
   return Number(n).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 })
@@ -88,22 +134,7 @@ function fmtMd(n) {
     <!-- ── MODE SIMPLIFIÉ ── -->
     <div v-if="mode === 'simple'" class="space-y-4 mb-6">
 
-      <!-- Impôt net -->
-      <div class="bg-gray-50 border border-gray-200 rounded-xl p-6">
-        <div class="max-w-xs">
-          <label class="block text-xs text-gray-500 mb-1">
-            Impôt net sur le revenu (€) — visible sur votre avis d'imposition
-          </label>
-          <input
-            v-model.number="simple.impotNet"
-            type="number" min="0" step="100"
-            class="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm"
-            placeholder="ex : 3 500"
-          />
-        </div>
-      </div>
-
-      <!-- Déclarants -->
+      <!-- Adultes du foyer + parts -->
       <div class="bg-gray-50 border border-gray-200 rounded-xl p-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-sm font-medium text-gray-700">Adultes du foyer</h2>
@@ -114,7 +145,7 @@ function fmtMd(n) {
           >+ Ajouter un adulte</button>
         </div>
 
-        <div class="grid gap-4" :class="simple.declarants.length === 2 ? 'md:grid-cols-2' : ''">
+        <div class="grid gap-4 mb-4" :class="simple.declarants.length === 2 ? 'md:grid-cols-2' : ''">
           <div v-for="d in simple.declarants" :key="d.id"
             class="bg-white border border-gray-200 rounded-lg p-4">
             <div class="flex items-center justify-between mb-3">
@@ -144,8 +175,15 @@ function fmtMd(n) {
           </div>
         </div>
 
+        <div class="max-w-xs">
+          <label class="block text-xs text-gray-500 mb-1">Nombre de parts fiscales</label>
+          <input v-model.number="simple.nbParts" type="number" min="1" max="10" step="0.5"
+            class="border border-gray-300 rounded-lg px-3 py-2 w-full text-sm" />
+          <p class="text-xs text-gray-400 mt-1">1 = célibataire, 2 = couple, +0,5 par enfant à charge</p>
+        </div>
+
         <p class="text-xs text-gray-400 mt-4">
-          Vous avez des frais réels, des dons ou des revenus fonciers ?
+          Frais réels, dons, revenus fonciers ?
           <button @click="mode = 'avance'" class="text-indigo-500 underline">Passez en mode avancé.</button>
         </p>
       </div>
@@ -168,7 +206,7 @@ function fmtMd(n) {
           <div v-for="d in avance.declarants" :key="d.id" class="bg-white border border-gray-200 rounded-lg p-4">
             <div class="flex items-center justify-between mb-3">
               <span class="text-xs font-medium text-gray-600">Déclarant {{ d.id }}</span>
-              <button v-if="avance.declarants.length > 1" @click="user.supprimerDeclarant(d.id)"
+              <button v-if="avance.declarants.length > 1" @click="user.supprimerDeclarant('avance', d.id)"
                 class="text-xs text-red-400 hover:text-red-600">Supprimer</button>
             </div>
             <div class="grid grid-cols-1 gap-3">
@@ -304,58 +342,136 @@ function fmtMd(n) {
       </div>
     </div>
 
-    <!-- ── TABLEAU GLOBAL ── -->
+    <!-- ── TOGGLE VUE ── -->
+    <div class="flex items-center gap-2 mb-6">
+      <button
+        v-for="[key, label] in [['cartes', 'Cartes'], ['graphiques', 'Graphiques']]"
+        :key="key"
+        @click="vueMode = key"
+        class="px-4 py-1.5 text-sm rounded-lg border transition-all"
+        :class="vueMode === key
+          ? 'bg-gray-900 text-white border-gray-900'
+          : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'"
+      >{{ label }}</button>
+    </div>
+
+    <!-- ── CONTENU BUDGET ── -->
     <p v-if="loading" class="text-gray-400">Chargement des données...</p>
     <p v-else-if="error" class="text-red-500">Erreur : {{ error }}</p>
-    <div v-else>
-      <div class="grid grid-cols-12 gap-2 px-4 pb-2 text-xs font-medium text-gray-400 uppercase tracking-wide">
-        <div class="col-span-1">Source</div>
-        <div class="col-span-4">Poste</div>
-        <div class="col-span-2 text-right">Budget total</div>
-        <div class="col-span-2 text-right">% du total</div>
-        <div class="col-span-3 text-right">Ma quote-part</div>
-      </div>
+    <div v-else class="space-y-10">
 
-      <div v-for="m in vueGlobale" :key="m.label" class="mb-1">
-        <div
-          @click="toggle(m.label)"
-          class="grid grid-cols-12 gap-2 px-4 py-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-all"
-          :class="expanded === m.label ? 'rounded-b-none border-b-0' : ''"
-        >
-          <div class="col-span-1 flex items-center">
-            <span class="text-xs font-medium px-2 py-0.5 rounded-full"
-              :class="m.source === 'État' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'">
-              {{ m.source === 'État' ? 'État' : 'Sécu' }}
-            </span>
-          </div>
-          <div class="col-span-4 flex items-center gap-2">
-            <span class="text-gray-300 text-xs">{{ expanded === m.label ? '▼' : '▶' }}</span>
-            <span class="text-sm font-medium text-gray-800">{{ m.label }}</span>
-          </div>
-          <div class="col-span-2 text-right text-sm text-gray-500">{{ fmtMd(m.total) }}</div>
-          <div class="col-span-2 text-right text-sm text-gray-500">{{ m.pct.toFixed(1) }}%</div>
-          <div class="col-span-3 text-right text-sm font-semibold"
-            :class="m.source === 'État' ? 'text-indigo-600' : 'text-emerald-600'">
-            {{ fmt(myShare(m.pct, m.source)) }}
-          </div>
+      <!-- Vue graphiques -->
+      <BudgetCharts
+        v-if="vueMode === 'graphiques'"
+        :lignesSecu="lignesSecu"
+        :lignesEtat="lignesEtat"
+        :myShare="myShare"
+      />
+
+      <!-- Vue cartes -->
+      <template v-if="vueMode === 'cartes'">
+
+      <!-- Section Sécurité Sociale -->
+      <section>
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></div>
+          <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Sécurité Sociale</h2>
+          <span class="text-xs text-gray-400">{{ secu ? fmtMd(secu.total) : '' }} — LFSS {{ annee }}</span>
         </div>
-
-        <div v-if="expanded === m.label" class="border border-gray-200 border-t-0 rounded-b-xl overflow-hidden">
-          <div v-for="p in m.programmes" :key="p.label"
-            class="grid grid-cols-12 gap-2 px-4 py-2 bg-gray-50 border-t border-gray-100">
-            <div class="col-span-1"></div>
-            <div class="col-span-4 pl-4 text-xs text-gray-600">{{ p.label }}</div>
-            <div class="col-span-2 text-right text-xs text-gray-400">{{ fmtMd(p.total) }}</div>
-            <div class="col-span-2 text-right text-xs text-gray-400">{{ p.pct.toFixed(2) }}%</div>
-            <div class="col-span-3 text-right text-xs font-medium"
-              :class="p.source === 'État' ? 'text-indigo-500' : 'text-emerald-500'">
-              {{ fmt(myShare(p.pct, p.source)) }}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="b in lignesSecu" :key="b.label"
+            class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-emerald-200 transition-colors"
+          >
+            <div class="p-4">
+              <div class="flex items-start justify-between mb-2">
+                <span class="text-2xl leading-none">{{ icone(b.label) }}</span>
+                <span class="text-xs text-gray-400 tabular-nums">{{ b.pct.toFixed(1) }}%</span>
+              </div>
+              <h3 class="text-sm font-semibold text-gray-800 leading-tight mb-4">{{ b.label }}</h3>
+              <div class="flex items-end justify-between">
+                <div>
+                  <p class="text-xs text-gray-400 mb-0.5">Budget total</p>
+                  <p class="text-sm font-medium text-gray-500 tabular-nums">{{ fmtMd(b.total) }}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-xs text-gray-400 mb-0.5">Ma quote-part</p>
+                  <p class="text-lg font-bold text-emerald-600 tabular-nums">{{ fmt(myShare(b.pct, b.source)) }}</p>
+                </div>
+              </div>
+            </div>
+            <button
+              @click="toggle(b.label)"
+              class="w-full px-4 py-2 text-xs text-gray-400 hover:text-emerald-600 bg-gray-50 hover:bg-emerald-50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
+            >
+              <span class="text-[10px]">{{ expanded === b.label ? '▲' : '▼' }}</span>
+              <span>{{ expanded === b.label ? 'Masquer' : `${b.programmes.length} sous-postes` }}</span>
+            </button>
+            <div v-if="expanded === b.label">
+              <div
+                v-for="p in b.programmes" :key="p.label"
+                class="flex items-start justify-between px-4 py-2.5 border-t border-gray-100 bg-gray-50"
+              >
+                <span class="text-xs text-gray-600 flex-1 pr-3 leading-snug">{{ p.label }}</span>
+                <span class="text-xs font-semibold text-emerald-500 tabular-nums shrink-0">{{ fmt(myShare(p.pct, p.source)) }}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <p class="text-xs text-gray-300 mt-6 text-center">
+      <!-- Section Budget de l'État -->
+      <section>
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-2.5 h-2.5 rounded-full bg-indigo-400 shrink-0"></div>
+          <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Budget de l'État</h2>
+          <span class="text-xs text-gray-400">PLF {{ annee }}</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="m in lignesEtat" :key="m.label"
+            class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-indigo-200 transition-colors"
+          >
+            <div class="p-4">
+              <div class="flex items-start justify-between mb-2">
+                <span class="text-2xl leading-none">{{ icone(m.label) }}</span>
+                <span class="text-xs text-gray-400 tabular-nums">{{ m.pct.toFixed(1) }}%</span>
+              </div>
+              <h3 class="text-sm font-semibold text-gray-800 leading-tight mb-4">{{ m.label }}</h3>
+              <div class="flex items-end justify-between">
+                <div>
+                  <p class="text-xs text-gray-400 mb-0.5">Budget total</p>
+                  <p class="text-sm font-medium text-gray-500 tabular-nums">{{ fmtMd(m.total) }}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-xs text-gray-400 mb-0.5">Ma quote-part</p>
+                  <p class="text-lg font-bold text-indigo-600 tabular-nums">{{ fmt(myShare(m.pct, m.source)) }}</p>
+                </div>
+              </div>
+            </div>
+            <button
+              @click="toggle(m.label)"
+              class="w-full px-4 py-2 text-xs text-gray-400 hover:text-indigo-600 bg-gray-50 hover:bg-indigo-50 transition-colors border-t border-gray-100 flex items-center justify-center gap-1.5"
+            >
+              <span class="text-[10px]">{{ expanded === m.label ? '▲' : '▼' }}</span>
+              <span>{{ expanded === m.label ? 'Masquer' : `${m.programmes.length} sous-postes` }}</span>
+            </button>
+            <div v-if="expanded === m.label">
+              <div
+                v-for="p in m.programmes" :key="p.label"
+                class="flex items-start justify-between px-4 py-2.5 border-t border-gray-100 bg-gray-50"
+              >
+                <span class="text-xs text-gray-600 flex-1 pr-3 leading-snug">{{ p.label }}</span>
+                <span class="text-xs font-semibold text-indigo-500 tabular-nums shrink-0">{{ fmt(myShare(p.pct, p.source)) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      </template>
+
+      <p class="text-xs text-gray-300 text-center">
         Estimation indicative — barème {{ annee }}.
         Sources : PLF {{ annee }} (data.economie.gouv.fr) · LFSS {{ annee }}.
       </p>
