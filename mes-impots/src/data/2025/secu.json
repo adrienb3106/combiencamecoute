@@ -1,0 +1,58 @@
+{
+  "total": 666000000000,
+  "branches": [
+    {
+      "label": "Retraites",
+      "total": 265000000000,
+      "programmes": [
+        { "label": "Retraites du régime général (CNAV)", "total": 147000000000 },
+        { "label": "Retraites complémentaires (AGIRC-ARRCO)", "total": 90000000000 },
+        { "label": "Régimes spéciaux", "total": 28000000000 }
+      ]
+    },
+    {
+      "label": "Santé — Assurance maladie",
+      "total": 247000000000,
+      "programmes": [
+        { "label": "Hôpitaux publics", "total": 102000000000 },
+        { "label": "Médecine de ville (consultations, généralistes, spécialistes)", "total": 72000000000 },
+        { "label": "Médicaments et pharmacie", "total": 40000000000 },
+        { "label": "Médico-social (handicap, dépendance)", "total": 33000000000 }
+      ]
+    },
+    {
+      "label": "Famille",
+      "total": 53000000000,
+      "programmes": [
+        { "label": "Allocations familiales", "total": 13000000000 },
+        { "label": "Petite enfance (crèches, assistantes maternelles)", "total": 16000000000 },
+        { "label": "Aides au logement (APL)", "total": 14000000000 },
+        { "label": "Autres prestations familiales", "total": 10000000000 }
+      ]
+    },
+    {
+      "label": "Chômage",
+      "total": 47000000000,
+      "programmes": [
+        { "label": "Allocations chômage (ARE)", "total": 38000000000 },
+        { "label": "Formation des demandeurs d'emploi", "total": 9000000000 }
+      ]
+    },
+    {
+      "label": "Accidents du travail & maladies professionnelles",
+      "total": 16000000000,
+      "programmes": [
+        { "label": "Indemnisations AT/MP", "total": 10000000000 },
+        { "label": "Prévention et réadaptation", "total": 6000000000 }
+      ]
+    },
+    {
+      "label": "Perte d'autonomie (dépendance)",
+      "total": 38000000000,
+      "programmes": [
+        { "label": "EHPAD et hébergement", "total": 24000000000 },
+        { "label": "Aide à domicile (APA)", "total": 14000000000 }
+      ]
+    }
+  ]
+}

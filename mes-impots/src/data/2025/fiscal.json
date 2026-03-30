@@ -1,0 +1,35 @@
+{
+  "annee": 2025,
+  "ir": {
+    "tranches": [
+      { "min": 0,      "max": 11497,   "taux": 0 },
+      { "min": 11497,  "max": 29315,   "taux": 0.11 },
+      { "min": 29315,  "max": 83823,   "taux": 0.30 },
+      { "min": 83823,  "max": 180294,  "taux": 0.41 },
+      { "min": 180294, "max": null,    "taux": 0.45 }
+    ]
+  },
+  "abattement_salaire": {
+    "taux": 0.10,
+    "min": 495,
+    "max": 14171
+  },
+  "cotisations": {
+    "salarie":       0.22,
+    "fonctionnaire": 0.12,
+    "independant":   0.35
+  },
+  "facteurs_brut": {
+    "salarie":       0.70,
+    "fonctionnaire": 0.70,
+    "independant":   0.65
+  },
+  "deductions": {
+    "per_plafond_pct_revenu": 0.10,
+    "dons": {
+      "standard": 0.66,
+      "urgence":  0.75
+    }
+  },
+  "prelevements_sociaux": 0.172
+}
